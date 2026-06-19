@@ -1,0 +1,37 @@
+name: CI
+
+# Scope of this workflow: the node firmware (M1) and the portable protocol
+# library (M2). The Linux gateway and the kernel driver are built by their own
+# jobs once they exist — they are intentionally NOT referenced here yet.
+#
+# Two jobs, mirroring the two compilers the Makefile uses:
+#   host-tests     -> plain gcc, runs every tests/test_*.c (fast, no toolchain)
+#   firmware-build -> arm-none-eabi-gcc, proves the image still cross-links
+# Splitting them keeps the signal sharp: a red "host-tests" means a logic bug,
+# a red "firmware-build" means a portability/linker regression.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  host-tests:
+    name: Host unit tests (gcc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run all host tests
+        run: make test
+      - name: Build fleet simulator
+        run: make sim
+
+  firmware-build:
+    name: Firmware cross-build (ARM Cortex-M3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+      - name: Cross-compile the node image
+        run: make firmware

@@ -1,0 +1,53 @@
+# Build artifacts
+build/
+*/build/
+*.o
+*.a
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Kernel module build artifacts
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+.*.cmd
+Module.symvers
+modules.order
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Vendor datasheets (copyrighted PDFs; keep them local, don't publish them)
+docs/*.pdf
+
+# Local working notes (local-only; not part of the published product).
+CLAUDE.md
+sharak_context.md
+docs/tracker.md
+docs/IMPLEMENTATION_NOTES.md
+handoff/
+sharak_learning_instructions.md
+sharak_learning_context.md
+
+# Cleanup staging — undeletable on this mount; remove from your file manager.
+_trash/
+
+# Claude Code local settings
+.claude/
+
+# Local-only notes/instructions (kept out of the published repo)
+*_context.md
+*Learning-Instructions.md
+*.dSYM/
