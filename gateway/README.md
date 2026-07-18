@@ -18,9 +18,9 @@ Transport → FrameParser → Decode+verify → Store → Exposure
 - **Exposure** — query CLI for last-N readings and per-node statistics, with a
   cloud/MQTT publisher stubbed behind an interface.
 
-Per-stage requirements: [`docs/requirements_gateway.md`](../docs/requirements_gateway.md).
-Architecture: [`docs/architecture.md`](../docs/architecture.md) §9.
+Per-stage requirements: [`docs/01_requirements_SWE1/gateway.md`](../docs/01_requirements_SWE1/gateway.md).
+Architecture: [`docs/02_architecture_SWE2/architecture.md`](../docs/02_architecture_SWE2/architecture.md) §9.
 
-> No stage code yet — the stages are added one commit at a time. The fleet
+> No stage code yet — the stages are added one at a time. The fleet
 > simulator in `sim/` (byte-exact via `protocol.c`) provides the multi-node load
 > to develop and test the gateway against, with no hardware.

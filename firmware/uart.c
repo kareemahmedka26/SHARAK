@@ -8,7 +8,7 @@
  *   gateway, surfaced under QEMU as a TCP socket.
  *
  * Datasheet references (LM3S6965, verified against the local PDF — see
- *   docs/requirements.md and the prompt's verified register table):
+ *   docs/01_requirements_SWE1/node.md and the prompt's verified register table):
  *     UART0 base 0x4000C000
  *       DR   +0x000  data
  *       FR   +0x018  flags   (TXFF = bit 5, RXFE = bit 4)

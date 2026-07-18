@@ -14,7 +14,7 @@
  *   - Polled (busy-wait) TX and a polled, NON-blocking RX (REQ-FW-004). No
  *     interrupts — at 100 Hz x <=38 B, polling provably cannot fall
  *     behind a 115200-baud line, so an IRQ + ring buffer would be complexity
- *     with no benefit yet (see docs/architecture.md section 8).
+ *     with no benefit yet (see docs/02_architecture_SWE2/architecture.md section 8).
  *   - `uart_write` takes a byte pointer + `size_t` length because frames are
  *     binary and may legitimately contain NUL bytes — `uart_puts` (NUL-
  *     terminated) is only for human-readable banners/errors.

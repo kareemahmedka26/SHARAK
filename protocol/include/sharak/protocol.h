@@ -7,7 +7,7 @@
  * Purpose
  *   The single source of truth for the bytes on the wire. The SAME protocol.c
  *   is compiled into the bare-metal node AND (later) the Linux gateway, so the
- *   two ends can never disagree about the format (docs/architecture.md).
+ *   two ends can never disagree about the format (docs/02_architecture_SWE2/architecture.md).
  *
  * Constraints (REQ-PR-001/007)
  *   Pure, portable C17: no heap, no I/O, no globals, no libc beyond

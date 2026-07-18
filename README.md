@@ -40,9 +40,9 @@ The **`protocol/`** library is the heart of the system: a single portable C
 file (`protocol.c`) compiled into *both* the firmware and the gateway, so the
 two ends can never disagree about the wire format.
 
-📐 **More diagrams:** see [`docs/diagrams.md`](docs/diagrams.md) (architecture,
+📐 **More diagrams:** see [`docs/02_architecture_SWE2/diagrams.md`](docs/02_architecture_SWE2/diagrams.md) (architecture,
 sequence, and platform-layering views that render on GitHub), or open
-[`docs/diagram.html`](docs/diagram.html) for a polished one-page overview.
+[`docs/02_architecture_SWE2/diagram.html`](docs/02_architecture_SWE2/diagram.html) for a polished one-page overview.
 
 ---
 
@@ -137,8 +137,8 @@ Sharak is a **three-tier system** built as a vertical slice that grows outward.
 
 **Further out:** FreeRTOS node, real STM32 hardware, on-node TinyML, Yocto / OTA, a Linux character-device driver.
 
-See [`docs/PLAN.md`](docs/PLAN.md) for the capability roadmap and
-[`docs/architecture.md`](docs/architecture.md) for design details.
+See [`docs/process/PLAN.md`](docs/process/PLAN.md) for the capability roadmap and
+[`docs/02_architecture_SWE2/architecture.md`](docs/02_architecture_SWE2/architecture.md) for design details.
 
 ---
 

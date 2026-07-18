@@ -55,7 +55,7 @@ int main(void)
 
     /* 4. Residue property: appending the CRC big-endian makes the CRC of the
      *    whole (payload + CRC) zero. This is exactly why the frame appends the
-     *    CRC high byte first (docs/architecture.md). */
+     *    CRC high byte first (docs/02_architecture_SWE2/architecture.md). */
     {
         uint8_t buf[18];
         uint16_t crc;

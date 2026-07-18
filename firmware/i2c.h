@@ -16,7 +16,7 @@
  *
  * The driver cannot tell them apart, which is the entire point: the QEMU
  * limitation is contained in one swappable backend instead of leaking into
- * the driver (docs/architecture.md section 2).
+ * the driver (docs/02_architecture_SWE2/architecture.md section 2).
  *
  * Contract for both methods:
  *   - `addr` is the 7-bit slave address (e.g. 0x53 for the ADXL345).

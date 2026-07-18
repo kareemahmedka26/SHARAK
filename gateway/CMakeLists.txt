@@ -18,8 +18,18 @@ add_library(sharak_protocol STATIC
 target_include_directories(sharak_protocol PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../protocol/include)
 
+# Gateway stages. Each commit adds one .cpp here, behind its own interface.
+add_library(sharak_gateway STATIC
+    src/decode.cpp)
+target_include_directories(sharak_gateway PUBLIC include)
+target_link_libraries(sharak_gateway PUBLIC sharak_protocol)
+
 enable_testing()
 
 add_executable(test_smoke tests/test_smoke.cpp)
 target_link_libraries(test_smoke PRIVATE sharak_protocol)
 add_test(NAME smoke COMMAND test_smoke)
+
+add_executable(test_decode tests/test_decode.cpp)
+target_link_libraries(test_decode PRIVATE sharak_gateway)
+add_test(NAME decode COMMAND test_decode)

@@ -8,7 +8,7 @@
  * WHY the simulator and not i2c_stellaris here: QEMU's lm3s6965evb does not
  * emulate I2C, so under emulation the node's "sensor" is i2c_sim (the same
  * driver code would talk to i2c_stellaris on real silicon — that is the whole
- * point of the i2c_bus_t dependency injection; see docs/architecture.md).
+ * point of the i2c_bus_t dependency injection; see docs/02_architecture_SWE2/architecture.md).
  *
  * Memory model: static buffers only, no heap, builds with -nostdlib. The image
  * carries its own runtime (startup.c); there is no libc here.
@@ -23,7 +23,7 @@
  * Crude busy-wait pacing. This is NOT calibrated timing — QEMU has no real
  * clock and the count is a rough placeholder so the stream is watchable. A real
  * product would pace the loop from a SysTick interrupt at exactly 100 Hz; that
- * is a planned refinement (docs/architecture.md section 5).
+ * is a planned refinement (docs/02_architecture_SWE2/architecture.md section 5).
  * `volatile` stops the optimizer from deleting the empty loop.
  */
 static void delay_pace(void)

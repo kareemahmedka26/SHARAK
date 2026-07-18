@@ -1,5 +1,5 @@
 /*
- * test_smoke.cpp — commit 1: prove the build works before any gateway logic.
+ * test_smoke.cpp — prove the build works before any gateway logic.
  *
  * The real risk this catches is the C/C++ boundary: protocol.c is compiled by
  * the C compiler, this file by the C++ compiler. If the extern "C" guards in
