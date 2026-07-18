@@ -236,3 +236,45 @@ a realistic, multi-source load in front of the code under test.
 | Interface per stage (transport/store/exposure) | direct concrete calls | lets tests inject fakes and lets backends (SQLite, MQTT, cloud) change without touching ingest |
 | Streaming byte-at-a-time parser | read whole frames then parse | a stream delivers arbitrary chunk boundaries; a state machine consumes them and resynchronizes after corruption |
 | Simulators encode via `protocol.c` | bespoke test-byte generators | byte-exact fidelity with real firmware and free coverage of the linkage seam |
+
+---
+
+## 10. Roadmap tiers (planned — cloud & edge AI)
+
+SHARAK is a three-tier system. Tiers 1 (node) and 2 (gateway) are the delivered
+and in-progress work above; tier 3 is captured here as **planned** so the system's
+intended shape is explicit. Both roadmap features slot into the existing
+dependency-inverted design without disturbing it — each is a new consumer behind
+an interface, not a rewrite.
+
+### 10.1 Cloud dashboard
+
+The gateway's Exposure layer already defines the cloud seam (an MQTT/cloud
+publisher behind its interface, currently stubbed). The planned tier 3 fills that
+seam: the gateway publishes validated telemetry over **MQTT** to a broker, a
+time-series store (e.g. InfluxDB) retains it, and a **Grafana** dashboard shows the
+whole factory floor. No node or protocol change is required — it is purely an
+additional Exposure backend.
+
+### 10.2 Edge AI (on the gateway)
+
+Condition monitoring has latency-critical decisions — a bearing failure or a robot
+fault must be caught in milliseconds, not after a cloud round-trip. The planned
+**Edge-AI stage** runs a lightweight inference model **on the gateway itself**,
+directly after Decode: it consumes the live telemetry stream, flags anomalies, and
+triggers a local response (alert / safe-state) without leaving the edge. It is a
+new stage behind an interface, exactly like Store and Exposure — so it composes
+into the existing pipeline (`Decode → [Analyzer] → Store → Exposure`) rather than
+replacing anything.
+
+Hardware path (future): the gateway runs on a real Linux SBC (e.g. Raspberry Pi)
+executing the same C++ code plus a TFLite/ONNX model. **On-node TinyML** (inference
+on the microcontroller itself) is a separate, deeper track that needs a
+Cortex-M4/M7 target — tracked outside this project.
+
+### 10.3 What stays out of scope (near term)
+
+The three-tier vision is the *plan*; the near-term deliverable is tiers 1–2 (node +
+gateway MVP), with cloud and edge AI shown honestly as future work. This keeps the
+build focused on the C++/Linux systems-programming core that the project is really
+about.

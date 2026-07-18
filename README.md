@@ -1,7 +1,7 @@
 # Sharak
 
-**An IoT edge-monitoring system, built from the metal up.**
-Bare-metal ARM firmware → a binary telemetry protocol → a Linux gateway in modern C++ → a kernel driver, CI/CD, and (later) on-device anomaly detection.
+**An industrial IIoT condition-monitoring system — edge to cloud.**
+A fleet of bare-metal sensor nodes (C) → a frozen binary wire protocol → a layered Linux gateway (C++17) → a planned cloud dashboard and on-edge failure detection. Built for predictive maintenance of factory machines, as three decoupled tiers behind a frozen wire contract.
 
 ![CI](https://img.shields.io/badge/CI-pending-lightgrey)
 ![Language](https://img.shields.io/badge/C-C%2B%2B-blue)
@@ -118,19 +118,24 @@ small synthetic wobble.)
 
 ## Roadmap
 
-Sharak is built as a vertical slice that grows outward. Delivered capabilities
-and what's next:
+Sharak is a **three-tier system** built as a vertical slice that grows outward.
 
+### Tier 1 · Sensor node — bare-metal C · ✅ built
 - [x] **Protocol core** — message format, CRC-16/CCITT, byte-stuffed framing, unit tests
 - [x] **Node firmware** — bare-metal Cortex-M3, custom startup + linker script, UART driver
 - [x] **CI** — protocol tests + firmware/gateway builds on every push
-- [ ] **Gateway (C++17)** — multi-node serial ingest, streaming frame parser, SQLite store, query CLI
-- [ ] **Linux driver** — character device exposing a virtual sensor to user space
-- [ ] **MQTT + live view** — publish telemetry; small dashboard
-- [ ] **FreeRTOS** — move the node to a real-time kernel with tasks/queues
-- [ ] **Real hardware** — port the firmware to an STM32 board
-- [ ] **On-device anomaly detection** — lightweight TinyML on the node
-- [ ] **Yocto / OTA** — custom Linux image and over-the-air firmware updates
+- [ ] **Second sensor type** (temperature) — exercises the multi-type wire contract
+
+### Tier 2 · Gateway — C++17 on Linux · 🚧 in progress
+- [ ] **Multi-node TCP ingest** + streaming frame parser (shared `protocol.c` via an `extern "C"` seam)
+- [ ] **Store interface + SQLite** backend, with an in-memory fake for tests
+- [ ] **Exposure query CLI**; concurrent fleet handling (node identity from the transport)
+
+### Tier 3 · Cloud & Edge AI · 📋 planned
+- [ ] **Cloud dashboard** — gateway publishes over MQTT → time-series store → Grafana
+- [ ] **Edge AI** — on-gateway inference for millisecond failure detection; latency-critical decisions stay at the edge instead of round-tripping to the cloud
+
+**Further out:** FreeRTOS node, real STM32 hardware, on-node TinyML, Yocto / OTA, a Linux character-device driver.
 
 See [`docs/PLAN.md`](docs/PLAN.md) for the capability roadmap and
 [`docs/architecture.md`](docs/architecture.md) for design details.

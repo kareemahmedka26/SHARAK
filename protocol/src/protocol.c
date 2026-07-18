@@ -113,6 +113,91 @@ int sk_payload_unpack(const uint8_t *buf, size_t len,
 }
 
 /* ===========================================================================
+ * Other message types (0x02 temp, 0x03 current) — share the 4-byte envelope
+ * =========================================================================== */
+
+/* Write ver, type, seq into the first 4 bytes. Caller guarantees cap >= 4. */
+static void put_envelope(uint8_t *buf, uint8_t type, uint16_t seq)
+{
+    buf[0] = SK_VER;
+    buf[1] = type;
+    buf[2] = (uint8_t)(seq & 0xFFu);
+    buf[3] = (uint8_t)((seq >> 8) & 0xFFu);
+}
+
+int sk_pack_temp(uint8_t *buf, size_t cap, uint16_t seq, int16_t temp_centi_c)
+{
+    uint16_t ut;
+
+    if (buf == NULL || cap < SK_PAYLOAD_MIN) {
+        return -1;
+    }
+    put_envelope(buf, SK_TYPE_TEMP, seq);
+    ut = (uint16_t)temp_centi_c;               /* two's-complement bytes on wire */
+    buf[4] = (uint8_t)(ut & 0xFFu);
+    buf[5] = (uint8_t)((ut >> 8) & 0xFFu);
+    return 6;                                   /* SK_ENVELOPE_LEN + 2            */
+}
+
+int sk_pack_current(uint8_t *buf, size_t cap, uint16_t seq, int32_t current_ma)
+{
+    uint32_t uc;
+
+    if (buf == NULL || cap < 8u) {
+        return -1;
+    }
+    put_envelope(buf, SK_TYPE_CURRENT, seq);
+    uc = (uint32_t)current_ma;
+    buf[4] = (uint8_t)(uc & 0xFFu);
+    buf[5] = (uint8_t)((uc >> 8) & 0xFFu);
+    buf[6] = (uint8_t)((uc >> 16) & 0xFFu);
+    buf[7] = (uint8_t)((uc >> 24) & 0xFFu);
+    return 8;                                   /* SK_ENVELOPE_LEN + 4            */
+}
+
+int sk_envelope_unpack(const uint8_t *buf, size_t len,
+                       uint8_t *ver, uint8_t *type, uint16_t *seq)
+{
+    if (buf == NULL || len < SK_ENVELOPE_LEN) {
+        return -1;
+    }
+    if (ver != NULL) {
+        *ver = buf[0];
+    }
+    if (type != NULL) {
+        *type = buf[1];
+    }
+    if (seq != NULL) {
+        *seq = (uint16_t)((uint16_t)buf[2] | ((uint16_t)buf[3] << 8));
+    }
+    return 0;
+}
+
+int sk_unpack_temp(const uint8_t *buf, size_t len, int16_t *temp_centi_c)
+{
+    if (buf == NULL || len < 6u) {
+        return -1;
+    }
+    if (temp_centi_c != NULL) {
+        *temp_centi_c = (int16_t)((uint16_t)((uint16_t)buf[4] |
+                                             ((uint16_t)buf[5] << 8)));
+    }
+    return 0;
+}
+
+int sk_unpack_current(const uint8_t *buf, size_t len, int32_t *current_ma)
+{
+    if (buf == NULL || len < 8u) {
+        return -1;
+    }
+    if (current_ma != NULL) {
+        *current_ma = (int32_t)((uint32_t)buf[4] | ((uint32_t)buf[5] << 8) |
+                                ((uint32_t)buf[6] << 16) | ((uint32_t)buf[7] << 24));
+    }
+    return 0;
+}
+
+/* ===========================================================================
  * Frame encode: CRC (big-endian) + HDLC byte stuffing between FLAG bytes
  * =========================================================================== */
 int sk_frame_encode(const uint8_t *payload, size_t plen,
@@ -121,20 +206,23 @@ int sk_frame_encode(const uint8_t *payload, size_t plen,
     uint8_t inner[SK_FRAME_INNER];
     uint16_t crc;
     size_t n = 0u;
+    size_t inner_len;
 
-    if (payload == NULL || out == NULL || plen != SK_PAYLOAD_LEN) {
+    if (payload == NULL || out == NULL ||
+        plen < SK_PAYLOAD_MIN || plen > SK_PAYLOAD_MAX) {
         return -1;
     }
 
-    /* inner = payload[16] followed by CRC, high byte first (big-endian). The
+    /* inner = payload[plen] followed by CRC, high byte first (big-endian). The
      * one big-endian item on an otherwise LE wire — it makes the receiver's
      * residue check (CRC over payload+crc == 0) work without byte swapping. */
-    for (size_t i = 0u; i < SK_PAYLOAD_LEN; i++) {
+    for (size_t i = 0u; i < plen; i++) {
         inner[i] = payload[i];
     }
-    crc = crc16_ccitt_false(payload, SK_PAYLOAD_LEN);
-    inner[SK_PAYLOAD_LEN]      = (uint8_t)((crc >> 8) & 0xFFu);  /* hi */
-    inner[SK_PAYLOAD_LEN + 1u] = (uint8_t)(crc & 0xFFu);        /* lo */
+    crc = crc16_ccitt_false(payload, plen);
+    inner[plen]      = (uint8_t)((crc >> 8) & 0xFFu);  /* hi */
+    inner[plen + 1u] = (uint8_t)(crc & 0xFFu);         /* lo */
+    inner_len = plen + SK_CRC_LEN;
 
     /* opening FLAG */
     if (cap < 1u) {
@@ -143,7 +231,7 @@ int sk_frame_encode(const uint8_t *payload, size_t plen,
     out[n++] = SK_FLAG;
 
     /* stuff each inner byte */
-    for (size_t i = 0u; i < SK_FRAME_INNER; i++) {
+    for (size_t i = 0u; i < inner_len; i++) {
         uint8_t b = inner[i];
         if (b == SK_FLAG || b == SK_ESC) {
             if (n + 2u > cap) {
@@ -185,30 +273,34 @@ void sk_decoder_init(sk_decoder_t *st)
 /* Validate a just-closed frame and, if good, deliver the payload. */
 static int decoder_finish(sk_decoder_t *st, uint8_t *out, size_t cap)
 {
+    size_t   payload_len;
     uint16_t crc;
     uint16_t recv;
 
     if (st->overflow || st->count > SK_FRAME_INNER) {
         return SK_DEC_ERR_OFLOW;
     }
-    if (st->count != SK_FRAME_INNER) {
+    /* Length is carried by the frame itself: inner = payload + 2-byte CRC, so a
+     * valid frame has at least SK_PAYLOAD_MIN + SK_CRC_LEN inner bytes. */
+    if (st->count < (uint16_t)(SK_PAYLOAD_MIN + SK_CRC_LEN)) {
         return SK_DEC_ERR_LEN;
     }
+    payload_len = (size_t)st->count - SK_CRC_LEN;
 
-    crc  = crc16_ccitt_false(st->buf, SK_PAYLOAD_LEN);
-    recv = (uint16_t)(((uint16_t)st->buf[SK_PAYLOAD_LEN] << 8) |
-                       (uint16_t)st->buf[SK_PAYLOAD_LEN + 1u]);   /* big-endian */
+    crc  = crc16_ccitt_false(st->buf, payload_len);
+    recv = (uint16_t)(((uint16_t)st->buf[payload_len] << 8) |
+                       (uint16_t)st->buf[payload_len + 1u]);   /* big-endian */
     if (crc != recv) {
         return SK_DEC_ERR_CRC;
     }
 
-    if (out == NULL || cap < SK_PAYLOAD_LEN) {
+    if (out == NULL || cap < payload_len) {
         return SK_DEC_ERR_LEN;          /* nowhere to deliver; treat as reject */
     }
-    for (size_t i = 0u; i < SK_PAYLOAD_LEN; i++) {
+    for (size_t i = 0u; i < payload_len; i++) {
         out[i] = st->buf[i];
     }
-    return SK_DEC_FRAME;
+    return (int)payload_len;            /* positive = complete frame, N bytes   */
 }
 
 int sk_decoder_feed(sk_decoder_t *st, uint8_t byte, uint8_t *out, size_t cap)

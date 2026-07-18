@@ -14,22 +14,31 @@
  *   <stdint.h>/<stddef.h>. Every function takes caller-provided buffers with
  *   explicit size_t capacities, bounds-checks them, and is const-correct.
  *
- * Wire format
- *   Payload (16 bytes, fixed):
- *     ver(1)=0x01 | type(1)=0x01 | seq(2 LE) | x_mg(4 LE) | y_mg(4 LE) | z_mg(4 LE)
+ * Wire format (type-tagged, variable length)
+ *   Every message starts with a 4-byte common envelope:
+ *     ver(1)=0x01 | type(1) | seq(2 LE)
+ *   then a type-specific body:
+ *     type 0x01 accel   : x_mg(4 LE) y_mg(4 LE) z_mg(4 LE)   -> 16-byte payload
+ *     type 0x02 temp    : temp_centi_c(2 LE)                 ->  6-byte payload
+ *     type 0x03 current : current_ma(4 LE)                   ->  8-byte payload
  *   Frame:
- *     0x7E  stuffed( payload[16] + crc_hi + crc_lo )  0x7E
- *   CRC-16/CCITT-FALSE over the 16 payload bytes, appended BIG-ENDIAN.
- *   Byte stuffing: 0x7E -> 0x7D 0x5E, 0x7D -> 0x7D 0x5D (escaped = byte ^ 0x20).
+ *     0x7E  stuffed( payload[N] + crc_hi + crc_lo )  0x7E
+ *   CRC-16/CCITT-FALSE over the N payload bytes, appended BIG-ENDIAN. The frame's
+ *   HDLC flags delimit length, so the payload size is carried by the frame itself;
+ *   the receiver dispatches on `type`. Byte stuffing: 0x7E -> 0x7D 0x5E,
+ *   0x7D -> 0x7D 0x5D (escaped = byte ^ 0x20).
  */
 
 #include <stdint.h>
 #include <stddef.h>
 
 /* ---- sizes & constants ----------------------------------------------------*/
-#define SK_PAYLOAD_LEN   16u            /* fixed payload size                  */
-#define SK_CRC_LEN        2u            /* CRC-16 appended after payload       */
-#define SK_FRAME_INNER   (SK_PAYLOAD_LEN + SK_CRC_LEN)   /* 18 bytes pre-stuff */
+#define SK_ENVELOPE_LEN   4u           /* ver(1) type(1) seq(2) — every message */
+#define SK_PAYLOAD_MAX   16u           /* largest payload (accel: env + 3xint32) */
+#define SK_PAYLOAD_MIN    6u           /* smallest payload (temp: env + int16)   */
+#define SK_PAYLOAD_LEN   SK_PAYLOAD_MAX /* back-compat alias: accel == the max   */
+#define SK_CRC_LEN        2u            /* CRC-16 appended after payload          */
+#define SK_FRAME_INNER   (SK_PAYLOAD_MAX + SK_CRC_LEN)   /* 18 bytes, max pre-stuff */
 /* Worst case: every inner byte stuffed (x2) + 2 FLAG bytes = 38. */
 #define SK_FRAME_MAX     (2u * SK_FRAME_INNER + 2u)      /* 38 bytes           */
 
@@ -38,13 +47,18 @@
 #define SK_ESC_XOR       0x20u          /* escaped value = byte ^ 0x20         */
 
 #define SK_VER           0x01u          /* protocol version                    */
-#define SK_TYPE_ACCEL    0x01u          /* accelerometer sample message        */
+#define SK_TYPE_ACCEL    0x01u          /* env + x_mg,y_mg,z_mg int32 LE  (16 B) */
+#define SK_TYPE_TEMP     0x02u          /* env + temp_centi_c int16 LE   ( 6 B) */
+#define SK_TYPE_CURRENT  0x03u          /* env + current_ma int32 LE     ( 8 B) */
 
 /* ---- frame decode (incremental state machine) -----------------------------*/
-/* Per-byte feed results / errors (REQ-PR-006). */
+/* Per-byte feed results / errors (REQ-PR-006).
+ * On a complete, CRC-valid frame, sk_decoder_feed returns the PAYLOAD LENGTH
+ * (a positive value in SK_PAYLOAD_MIN..SK_PAYLOAD_MAX); dispatch on the payload's
+ * `type` byte. SK_DEC_FRAME (16) is kept as the accel-length example. */
 #define SK_DEC_MORE        0    /* byte consumed, no frame yet                 */
-#define SK_DEC_FRAME      16    /* a complete, CRC-valid 16-byte payload is out */
-#define SK_DEC_ERR_LEN    (-1)  /* frame ended with wrong length               */
+#define SK_DEC_FRAME      16    /* example positive result: an accel payload   */
+#define SK_DEC_ERR_LEN    (-1)  /* frame ended shorter than the minimum        */
 #define SK_DEC_ERR_CRC    (-2)  /* length ok but CRC mismatched                */
 #define SK_DEC_ERR_OFLOW  (-3)  /* frame grew past the maximum inner length    */
 
@@ -88,6 +102,25 @@ int sk_payload_pack(uint8_t *buf, size_t cap,
 int sk_payload_unpack(const uint8_t *buf, size_t len,
                       uint8_t *ver, uint8_t *type, uint16_t *seq,
                       int32_t *x_mg, int32_t *y_mg, int32_t *z_mg);
+
+/* ---- other message types (share the 4-byte envelope) ----------------------*/
+/*
+ * type 0x02 temperature: envelope + int16 centi-degrees C (LE). Writes 6 bytes.
+ * type 0x03 current:     envelope + int32 milli-amps    (LE). Writes 8 bytes.
+ * Return the number of bytes written, or negative if cap is too small.
+ */
+int sk_pack_temp(uint8_t *buf, size_t cap, uint16_t seq, int16_t temp_centi_c);
+int sk_pack_current(uint8_t *buf, size_t cap, uint16_t seq, int32_t current_ma);
+
+/*
+ * Read the common envelope (ver, type, seq) from any message. Dispatch on
+ * `type`, then call the matching body accessor below. Any out-ptr may be NULL.
+ * Returns 0 on success, negative if buf is NULL or len < SK_ENVELOPE_LEN.
+ */
+int sk_envelope_unpack(const uint8_t *buf, size_t len,
+                       uint8_t *ver, uint8_t *type, uint16_t *seq);
+int sk_unpack_temp(const uint8_t *buf, size_t len, int16_t *temp_centi_c);
+int sk_unpack_current(const uint8_t *buf, size_t len, int32_t *current_ma);
 
 /* ---- frame encode ---------------------------------------------------------*/
 /*
